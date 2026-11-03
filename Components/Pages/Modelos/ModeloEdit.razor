@@ -1,0 +1,45 @@
+@page "/Modelo/edit/{id:int}"
+@inject ModeloService ModeloService
+@inject NavigationManager Navigation
+
+<PageTitle>Editar Modelo</PageTitle>
+<h3>Editar Modelo</h3>
+@if (modelo is null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="modelo" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="mb-3">
+                    <label class="form-label">Nombre</label>
+                    <InputText class="form-control" @bind-Value="modelo.Nombre" />
+                    <ValidationMessage For="() => modelo.Nombre" />
+                </div>
+                <button class="btn btn-primary" type="submit">Guardar cambios</button>
+                <a class="btn btn-secondary ms-2" href="/Modelo/Index">Volver</a>
+            </EditForm>
+        </div>
+    </div>
+}
+@code {
+    [Parameter]
+    public int id { get; set; }
+
+    private Modelo? modelo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        modelo = await ModeloService.Buscar(id);
+    }
+
+    private async Task Guardar()
+    {
+        if (modelo is not null && await ModeloService.Guardar(modelo))
+            Navigation.NavigateTo("/Modelo/Index");
+    }
+}

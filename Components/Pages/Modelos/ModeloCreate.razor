@@ -1,0 +1,30 @@
+@page "/Modelo/create"
+@inject ModeloService ModeloService
+@inject NavigationManager Navigation
+
+<PageTitle>Nuevo Modelo</PageTitle>
+<h3>Nuevo Modelo</h3>
+<div class="card">
+    <div class="card-body">
+        <EditForm Model="modelo" OnValidSubmit="Guardar">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <div class="mb-3">
+                <label class="form-label">Nombre</label>
+                <InputText class="form-control" @bind-Value="modelo.Nombre" />
+                <ValidationMessage For="() => modelo.Nombre" />
+            </div>
+            <button class="btn btn-primary" type="submit">Guardar</button>
+            <a class="btn btn-secondary ms-2" href="/Modelo/Index">Volver</a>
+        </EditForm>
+    </div>
+</div>
+@code {
+    private Modelo modelo = new();
+
+    private async Task Guardar()
+    {
+        if (await ModeloService.Guardar(modelo))
+            Navigation.NavigateTo("/Modelo/Index");
+    }
+}
