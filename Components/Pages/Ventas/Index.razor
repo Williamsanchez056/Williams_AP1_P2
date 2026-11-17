@@ -1,0 +1,219 @@
+﻿@page "/Venta/Index"
+@using Williams_AP1_P2.Models
+@using Williams_AP1_P2.Services
+@inject VentasService VentasService
+@rendermode InteractiveServer
+
+<PageTitle>Consulta de Ventas</PageTitle>
+
+<h3 class="text-center mt-4">Consulta de Ventas</h3>
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Venta ID</label>
+                    <InputNumber class="form-control" @bind-Value="VentaIdFiltro" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Concepto</label>
+                    <InputText class="form-control" @bind-Value="ConceptoFiltro" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Fecha Desde</label>
+                    <InputDate class="form-control" @bind-Value="FechaDesde" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Fecha Hasta</label>
+                    <InputDate class="form-control" @bind-Value="FechaHasta" />
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-primary" @onclick="Buscar">
+                    Buscar
+                </button>
+
+                <button class="btn btn-secondary" @onclick="Limpiar">
+                    Limpiar
+                </button>
+
+                <a href="/Venta/Create" class="btn btn-success ms-auto">
+                    Nueva Venta
+                </a>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Mensaje))
+            {
+                <div class="alert alert-danger">
+                    @Mensaje
+                </div>
+            }
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Venta ID</th>
+                            <th>Fecha</th>
+                            <th>Observacion</th>
+                            <th>Productos</th>
+                            <th>Total</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @if (VentasFiltradas.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    No hay ventas registradas.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var venta in VentasFiltradas)
+                            {
+                                <tr>
+                                    <td>@venta.VentaId</td>
+                                    <td>@venta.Fecha.ToString("dd/MM/yyyy")</td>
+                                    <td>@venta.Observacion</td>
+                                    <td>
+                                        @foreach (var detalle in venta.Detalles)
+                                        {
+                                            <div>
+                                                @detalle.Producto?.Concepto
+                                                (x@detalle.Cantidad)
+                                            </div>
+                                        }
+                                    </td>
+                                    <td>@venta.Total.ToString("C2")</td>
+                                    <td>
+                                        <a class="btn btn-warning btn-sm"
+                                           href="@($"/Venta/Edit/{venta.VentaId}")">
+                                            Editar
+                                        </a>
+
+                                        <a class="btn btn-danger btn-sm"
+                                           href="@($"/Venta/Delete/{venta.VentaId}")">
+                                            Eliminar
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+
+                    <tfoot>
+                        <tr>
+                            <th colspan="4" class="text-end">
+                                Registros: @VentasFiltradas.Count
+                            </th>
+                            <th colspan="2">
+                                Total vendido: @TotalVendido.ToString("C2")
+                            </th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Ventas> ListaVentas = new();
+    private List<Ventas> VentasFiltradas = new();
+
+    private int? VentaIdFiltro;
+    private string ConceptoFiltro = string.Empty;
+    private DateTime? FechaDesde;
+    private DateTime? FechaHasta;
+
+    private string Mensaje = string.Empty;
+
+    private decimal TotalVendido =>
+        VentasFiltradas.Sum(v => v.Total);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarVentas();
+    }
+
+    private async Task CargarVentas()
+    {
+        var resultado = await VentasService.GetList(v => true);
+
+        if (resultado.IsSuccess)
+        {
+            ListaVentas = resultado.Value;
+            AplicarFiltros();
+            Mensaje = string.Empty;
+        }
+        else
+        {
+            ListaVentas = new();
+            VentasFiltradas = new();
+            Mensaje = "No se pudieron cargar las ventas.";
+        }
+    }
+
+    private void AplicarFiltros()
+    {
+        var consulta = ListaVentas.AsEnumerable();
+
+        if (VentaIdFiltro.HasValue)
+        {
+            consulta = consulta.Where(v =>
+                v.VentaId == VentaIdFiltro.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ConceptoFiltro))
+        {
+            consulta = consulta.Where(v =>
+                v.Detalles.Any(d =>
+                    d.Producto != null &&
+                    d.Producto.Concepto.Contains(
+                        ConceptoFiltro,
+                        StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (FechaDesde.HasValue)
+        {
+            consulta = consulta.Where(v =>
+                v.Fecha.Date >= FechaDesde.Value.Date);
+        }
+
+        if (FechaHasta.HasValue)
+        {
+            consulta = consulta.Where(v =>
+                v.Fecha.Date <= FechaHasta.Value.Date);
+        }
+
+        VentasFiltradas = consulta
+            .OrderByDescending(v => v.VentaId)
+            .ToList();
+    }
+
+    private void Buscar()
+    {
+        AplicarFiltros();
+    }
+
+    private void Limpiar()
+    {
+        VentaIdFiltro = null;
+        ConceptoFiltro = string.Empty;
+        FechaDesde = null;
+        FechaHasta = null;
+
+        AplicarFiltros();
+    }
+}

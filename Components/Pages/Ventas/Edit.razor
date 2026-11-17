@@ -1,0 +1,358 @@
+﻿@page "/Venta/Edit/{id:int}"
+@using Williams_AP1_P2.Models
+@using Williams_AP1_P2.Services
+@inject VentasService VentasService
+@inject ProductosService ProductosService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Editar Venta</PageTitle>
+
+<h3 class="text-center mt-4">Editar Venta</h3>
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+
+            @if (Cargando)
+            {
+                <p class="text-center">Cargando venta...</p>
+            }
+            else if (Venta == null)
+            {
+                <div class="alert alert-danger">
+                    @Mensaje
+                </div>
+
+                <a href="/Venta/Index" class="btn btn-secondary">
+                    Volver
+                </a>
+            }
+            else
+            {
+                <EditForm Model="Venta" OnValidSubmit="Guardar">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Venta ID</label>
+                            <input class="form-control"
+                                   value="@Venta.VentaId"
+                                   disabled />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Fecha</label>
+                            <InputDate class="form-control"
+                                       @bind-Value="Venta.Fecha" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Observación</label>
+                            <InputText class="form-control"
+                                       @bind-Value="Venta.Observacion" />
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <h5>Agregar productos</h5>
+
+                    <div class="row align-items-end mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label">Producto</label>
+
+                            <InputSelect class="form-select"
+                                         @bind-Value="ProductoSeleccionadoId">
+                                <option value="0">Seleccione un producto</option>
+
+                                @foreach (var producto in ListaProductos)
+                                {
+                                    <option value="@producto.ProductoId">
+                                        @producto.Concepto
+                                        (Stock: @StockDisponible(producto.ProductoId))
+                                    </option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Cantidad</label>
+                            <InputNumber class="form-control"
+                                         @bind-Value="Cantidad" />
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">Precio</label>
+                            <input class="form-control"
+                                   value="@PrecioSeleccionado.ToString("N2")"
+                                   disabled />
+                        </div>
+
+                        <div class="col-md-2">
+                            <button type="button"
+                                    class="btn btn-primary w-100"
+                                    @onclick="AgregarDetalle">
+                                Agregar
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(Mensaje))
+                    {
+                        <div class="alert alert-danger">
+                            @Mensaje
+                        </div>
+                    }
+
+                    <h5>Detalle de la venta</h5>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Cantidad</th>
+                                    <th>Precio</th>
+                                    <th>Importe</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @if (Venta.Detalles.Count == 0)
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center">
+                                            No hay productos agregados.
+                                        </td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    @foreach (var detalle in Venta.Detalles)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @ListaProductos.FirstOrDefault(
+                                                    p => p.ProductoId == detalle.ProductoId
+                                                )?.Concepto
+                                            </td>
+                                            <td>@detalle.Cantidad</td>
+                                            <td>@detalle.Precio.ToString("C2")</td>
+                                            <td>
+                                                @((detalle.Cantidad * detalle.Precio).ToString("C2"))
+                                            </td>
+                                            <td>
+                                                <button type="button"
+                                                        class="btn btn-danger btn-sm"
+                                                        @onclick="() => EliminarDetalle(detalle)">
+                                                    Quitar
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+
+                            <tfoot>
+                                <tr>
+                                    <th colspan="3" class="text-end">
+                                        Total:
+                                    </th>
+                                    <th colspan="2">
+                                        @Total.ToString("C2")
+                                    </th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="/Venta/Index" class="btn btn-secondary">
+                            Cancelar
+                        </a>
+
+                        <button type="submit" class="btn btn-success">
+                            Actualizar Venta
+                        </button>
+                    </div>
+                </EditForm>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int id { get; set; }
+
+    private Ventas? Venta;
+    private List<Productos> ListaProductos = new();
+
+    private int ProductoSeleccionadoId;
+    private int Cantidad = 1;
+
+    private string Mensaje = string.Empty;
+    private bool Cargando = true;
+
+    private decimal PrecioSeleccionado =>
+        ListaProductos.FirstOrDefault(
+            p => p.ProductoId == ProductoSeleccionadoId
+        )?.Precio ?? 0;
+
+    private decimal Total =>
+        Venta?.Detalles.Sum(d => d.Cantidad * d.Precio) ?? 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarVenta();
+    }
+
+    private async Task CargarVenta()
+    {
+        Cargando = true;
+
+        var resultado = await VentasService.Buscar(id);
+
+        if (resultado.IsSuccess)
+        {
+            Venta = resultado.Value;
+        }
+        else
+        {
+            Venta = null;
+            Mensaje = resultado.Error.Description;
+        }
+
+        var resultadoProductos = await ProductosService.GetList(p => true);
+
+        if (resultadoProductos.IsSuccess)
+        {
+            ListaProductos = resultadoProductos.Value;
+        }
+        else
+        {
+            ListaProductos = new();
+            Mensaje = resultadoProductos.Error.Description;
+        }
+
+        Cargando = false;
+    }
+
+    private int StockDisponible(int productoId)
+    {
+        var producto = ListaProductos.FirstOrDefault(
+            p => p.ProductoId == productoId
+        );
+
+        if (producto == null)
+        {
+            return 0;
+        }
+
+        int cantidadAnterior = Venta?.Detalles
+            .Where(d => d.ProductoId == productoId)
+            .Sum(d => d.Cantidad) ?? 0;
+
+        return producto.Stock + cantidadAnterior;
+    }
+
+    private void AgregarDetalle()
+    {
+        Mensaje = string.Empty;
+
+        if (Venta == null)
+        {
+            return;
+        }
+
+        if (ProductoSeleccionadoId == 0)
+        {
+            Mensaje = "Debe seleccionar un producto.";
+            return;
+        }
+
+        if (Cantidad <= 0)
+        {
+            Mensaje = "La cantidad debe ser mayor que cero.";
+            return;
+        }
+
+        var producto = ListaProductos.FirstOrDefault(
+            p => p.ProductoId == ProductoSeleccionadoId
+        );
+
+        if (producto == null)
+        {
+            Mensaje = "El producto seleccionado no existe.";
+            return;
+        }
+
+        int cantidadActual = Venta.Detalles
+            .Where(d => d.ProductoId == ProductoSeleccionadoId)
+            .Sum(d => d.Cantidad);
+
+        if (Cantidad + cantidadActual > StockDisponible(ProductoSeleccionadoId))
+        {
+            Mensaje = "No hay suficiente stock disponible.";
+            return;
+        }
+
+        var detalleExistente = Venta.Detalles.FirstOrDefault(
+            d => d.ProductoId == ProductoSeleccionadoId
+        );
+
+        if (detalleExistente != null)
+        {
+            detalleExistente.Cantidad += Cantidad;
+        }
+        else
+        {
+            Venta.Detalles.Add(new DetalleVenta
+            {
+                ProductoId = producto.ProductoId,
+                Cantidad = Cantidad,
+                Precio = producto.Precio
+            });
+        }
+
+        Cantidad = 1;
+        ProductoSeleccionadoId = 0;
+    }
+
+    private void EliminarDetalle(DetalleVenta detalle)
+    {
+        Venta?.Detalles.Remove(detalle);
+    }
+
+    private async Task Guardar()
+    {
+        Mensaje = string.Empty;
+
+        if (Venta == null)
+        {
+            return;
+        }
+
+        if (Venta.Detalles.Count == 0)
+        {
+            Mensaje = "Debe agregar al menos un producto.";
+            return;
+        }
+
+        Venta.Total = Total;
+
+        var resultado = await VentasService.Guardar(Venta);
+
+        if (resultado.IsSuccess)
+        {
+            Navigation.NavigateTo("/Venta/Index");
+        }
+        else
+        {
+            Mensaje = resultado.Error.Description;
+        }
+    }
+}

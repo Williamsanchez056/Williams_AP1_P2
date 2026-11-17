@@ -10,6 +10,8 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddBlazorBootstrap();
 builder.Services.AddScoped<ModeloService>();
+builder.Services.AddScoped<ProductosService>();
+builder.Services.AddScoped<VentasService>();
 builder.Services.AddDbContextFactory<Contexto>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("SqlConStr")));
 
